@@ -1,0 +1,30 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+api
+api.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+env/
+venv/
+
+# Node & Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# System & IDE
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
