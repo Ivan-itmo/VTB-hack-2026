@@ -4,8 +4,8 @@
 *.dll
 *.so
 *.dylib
-api
-api.exe
+/backend/api
+/backend/api.exe
 
 # Python
 __pycache__/

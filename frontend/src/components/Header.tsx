@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
               title={
                 isBackendConnected === true
-                  ? 'Бэкенд доступен (http://localhost:8000)'
+                  ? 'Бэкенд доступен'
                   : 'Бэкенд недоступен или проверяется'
               }
             >

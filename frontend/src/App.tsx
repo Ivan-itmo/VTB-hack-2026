@@ -12,7 +12,7 @@ import type {
   SandboxResponse,
 } from './types';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '';
 
 export function App() {
   const [mode, setMode] = useState<AppMode>('copilot');
@@ -76,7 +76,7 @@ export function App() {
     // Periodic ping to keep connection status active
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/`, { method: 'GET' });
+        const res = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET' });
         setIsBackendConnected(res.ok);
       } catch {
         setIsBackendConnected(false);
