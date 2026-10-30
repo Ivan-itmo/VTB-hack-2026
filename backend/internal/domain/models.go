@@ -73,6 +73,8 @@ func (r *CopilotRequest) GetID() string {
 
 // CopilotResponse представляет ответ ассистента с рекомендацией, черновиком и источниками.
 type CopilotResponse struct {
+	RetrievedChunks    []ChunkMatch `json:"retrieved_chunks"`
+	RetrievalScore     float64      `json:"retrieval_score"`
 	SuggestedRoute     string       `json:"suggested_route"`
 	ConfidenceScore    float64      `json:"confidence_score"`
 	ResolutionDraft    string       `json:"resolution_draft"`

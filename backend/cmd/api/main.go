@@ -27,6 +27,7 @@ func main() {
 	r.Get("/", h.Root)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/cases", h.GetDemoCases)
+		r.Post("/search", h.SearchChunks)
 		r.Post("/copilot/resolve", h.ResolveCopilot)
 		r.Post("/sandbox/evaluate", h.EvaluateSandbox)
 	})

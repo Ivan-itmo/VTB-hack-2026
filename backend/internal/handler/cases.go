@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"vtb-copilot-backend/internal/domain"
+	"vtb-copilot-backend/internal/search"
 )
 
 // Handler инкапсулирует логику обработки запросов и доступ к нормативным демо-кейсам.
@@ -17,6 +18,7 @@ type Handler struct {
 	dataPath string
 	payload  domain.DemoCasesPayload
 	mu       sync.RWMutex
+	rules    *search.Index
 }
 
 // New создает новый экземпляр Handler и загружает данные из demo_cases.json.
@@ -28,6 +30,20 @@ func New(customPath string) (*Handler, error) {
 	if err := h.reloadCases(); err != nil {
 		return nil, err
 	}
+	rulesPath := os.Getenv("RULES_PATH")
+	if rulesPath == "" {
+		casesPath, err := h.locateDataFile()
+		if err != nil {
+			return nil, err
+		}
+		rulesPath = filepath.Join(filepath.Dir(casesPath), "rules.json")
+	}
+	index, err := search.Load(rulesPath, search.DefaultThreshold)
+	if err != nil {
+		return nil, err
+	}
+	h.rules = index
+	log.Printf("[Search] Загружено чанков: %d (файл: %s)", index.Len(), rulesPath)
 
 	return h, nil
 }
