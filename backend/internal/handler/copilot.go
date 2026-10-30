@@ -23,6 +23,15 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 
 	payload := h.GetCasesPayload()
 	taskText := strings.TrimSpace(req.GetTask())
+	retrieval := h.rules.Search(taskText)
+	if retrieval.EscalationRequired {
+		writeRetrievedCopilot(w, domain.CopilotResponse{
+			SuggestedRoute:     "Профильный эксперт • Эскалация",
+			EscalationRequired: true,
+			ResolutionDraft:    "Недостаточно релевантных нормативных оснований. Передайте задачу эксперту; автоматическая резолюция не сформирована.",
+		}, retrieval)
+		return
+	}
 	taskLower := strings.ToLower(taskText)
 	categoryLower := strings.ToLower(strings.TrimSpace(req.Category))
 	targetID := strings.TrimSpace(req.GetID())
@@ -58,7 +67,7 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		writeJSON(w, http.StatusOK, resp)
+		writeRetrievedCopilot(w, resp, retrieval)
 		return
 	}
 
@@ -73,7 +82,7 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 					EscalationRequired: c.EscalationRequired,
 					Sources:            c.Sources,
 				}
-				writeJSON(w, http.StatusOK, resp)
+				writeRetrievedCopilot(w, resp, retrieval)
 				return
 			}
 		}
@@ -91,7 +100,7 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 					EscalationRequired: c.EscalationRequired,
 					Sources:            c.Sources,
 				}
-				writeJSON(w, http.StatusOK, resp)
+				writeRetrievedCopilot(w, resp, retrieval)
 				return
 			}
 		}
@@ -120,7 +129,7 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		writeJSON(w, http.StatusOK, resp)
+		writeRetrievedCopilot(w, resp, retrieval)
 		return
 	}
 
@@ -143,7 +152,7 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		writeJSON(w, http.StatusOK, resp)
+		writeRetrievedCopilot(w, resp, retrieval)
 		return
 	}
 
@@ -165,7 +174,7 @@ func (h *Handler) ResolveCopilot(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeRetrievedCopilot(w, resp, retrieval)
 }
 
 func containsAny(s string, substrs []string) bool {

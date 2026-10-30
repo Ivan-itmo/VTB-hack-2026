@@ -130,10 +130,10 @@ func TestCopilotResolveEscalationRetroDate(t *testing.T) {
 	}
 }
 
-func TestCopilotResolveByCaseID(t *testing.T) {
+func TestCopilotResolveEscalatesUnrelatedTextWithCaseID(t *testing.T) {
 	r := setupTestRouter(t)
 
-	reqBody := []byte(`{"case_id": "copilot-case-01", "task_text": "Клиент ООО ТехноСфера"}`)
+	reqBody := []byte(`{"case_id": "COPILOT-01", "task_text": "Космический телескоп наблюдает галактики"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/copilot/resolve", bytes.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -149,14 +149,14 @@ func TestCopilotResolveByCaseID(t *testing.T) {
 		t.Fatalf("Ошибка декодирования: %v", err)
 	}
 
-	if resp.EscalationRequired {
-		t.Errorf("Для copilot-case-01 не требуется эскалация")
+	if !resp.EscalationRequired {
+		t.Errorf("Идентификатор кейса не должен обходить проверку релевантности текста")
 	}
-	if resp.ConfidenceScore < 0.90 {
-		t.Errorf("Ожидался высокий confidence_score, получено %f", resp.ConfidenceScore)
+	if resp.ConfidenceScore != 0 {
+		t.Errorf("Для нерелевантного текста не должно быть уверенного ответа")
 	}
-	if len(resp.Sources) == 0 {
-		t.Errorf("Ожидался список sources (REG-01)")
+	if len(resp.Sources) != 0 {
+		t.Errorf("Для текста без совпадений не должно быть источников")
 	}
 }
 
