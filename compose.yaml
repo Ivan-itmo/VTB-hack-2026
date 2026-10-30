@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

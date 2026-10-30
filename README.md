@@ -8,7 +8,7 @@
 
 ```
 vtb-copilot/
-├── backend/                       # Серверная часть (Go 1.22+, порт 8000)
+├── backend/                       # Серверная часть (Go 1.27+, порт 8000)
 │   ├── cmd/api/main.go            # Точка входа, инициализация роутера, graceful shutdown
 │   ├── internal/
 │   │   ├── domain/models.go       # Строгие структуры данных с тегами JSON
@@ -30,7 +30,36 @@ vtb-copilot/
 
 ---
 
-## 🚀 Быстрый запуск (Windows PowerShell)
+## 🐳 Запуск через Docker (рекомендуется)
+
+Нужен Docker с Compose v2 или новее (например, Docker Desktop). Go и Node.js на хосте не нужны.
+Из корня репозитория:
+
+```sh
+docker compose up -d --build --wait
+```
+
+Интерфейс: [http://localhost:8080](http://localhost:8080).
+При запуске на сервере замените `localhost` его IP-адресом или именем.
+API доступен через тот же адрес: [демо-кейсы](http://localhost:8080/api/v1/cases),
+[проверка API](http://localhost:8080/api/health).
+
+Compose собирает Go API с демо-данными и React-интерфейс, который раздается через Nginx.
+Nginx проксирует `/api/` в бэкенд; порт бэкенда наружу не публикуется.
+Для текущего MVP внешние LLM, ключи API и отдельная база данных не нужны.
+Первая сборка требует доступа к реестрам Docker, Go и npm; готовые образы работают без них.
+
+```sh
+docker compose ps                # состояние и healthcheck
+docker compose logs -f          # логи (Ctrl+C — выйти из просмотра)
+docker compose down             # остановка и удаление контейнеров
+docker compose up -d --build --wait  # пересобрать после изменений кода или data/
+```
+
+Чтобы изменить внешний порт, создайте в корне файл `.env` со строкой `APP_PORT=3000`
+и запустите ту же команду. Тогда интерфейс будет доступен на `http://localhost:3000`.
+
+## 🚀 Локальный запуск без Docker (Windows PowerShell)
 
 ### 1. Запуск Backend (Go, порт 8000)
 
