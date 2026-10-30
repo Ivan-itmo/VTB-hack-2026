@@ -73,13 +73,14 @@ func (r *CopilotRequest) GetID() string {
 
 // CopilotResponse представляет ответ ассистента с рекомендацией, черновиком и источниками.
 type CopilotResponse struct {
-	RetrievedChunks    []ChunkMatch `json:"retrieved_chunks"`
-	RetrievalScore     float64      `json:"retrieval_score"`
-	SuggestedRoute     string       `json:"suggested_route"`
-	ConfidenceScore    float64      `json:"confidence_score"`
-	ResolutionDraft    string       `json:"resolution_draft"`
-	EscalationRequired bool         `json:"escalation_required"`
-	Sources            []SourceItem `json:"sources"`
+	Analysis           *CopilotAnalysis `json:"analysis,omitempty"`
+	RetrievedChunks    []ChunkMatch     `json:"retrieved_chunks"`
+	RetrievalScore     float64          `json:"retrieval_score"`
+	SuggestedRoute     string           `json:"suggested_route"`
+	ConfidenceScore    float64          `json:"confidence_score"`
+	ResolutionDraft    string           `json:"resolution_draft"`
+	EscalationRequired bool             `json:"escalation_required"`
+	Sources            []SourceItem     `json:"sources"`
 }
 
 // SandboxRequest представляет входящий запрос на проверку ответа стажера в тренажере.
@@ -126,15 +127,19 @@ func (r *SandboxRequest) GetAnswer() string {
 
 // SandboxResponse представляет вердикт проверки ответа стажера.
 type SandboxResponse struct {
-	IsCorrect         bool     `json:"is_correct"`
-	Score             int      `json:"score"`
-	Feedback          string   `json:"feedback"`
-	MissedRules       []string `json:"missed_rules"`
-	CorrectResolution string   `json:"correct_resolution"`
+	Evaluation            *SandboxEvaluation `json:"evaluation,omitempty"`
+	EvaluationUnavailable bool               `json:"evaluation_unavailable,omitempty"`
+	EscalationRequired    bool               `json:"escalation_required,omitempty"`
+	IsCorrect             bool               `json:"is_correct"`
+	Score                 int                `json:"score"`
+	Feedback              string             `json:"feedback"`
+	MissedRules           []string           `json:"missed_rules"`
+	CorrectResolution     string             `json:"correct_resolution"`
 }
 
 // CopilotCase описывает демо-кейс ко-пилота из demo_cases.json.
 type CopilotCase struct {
+	TaskDescription    string       `json:"task_description,omitempty"`
 	ID                 string       `json:"id"`
 	Title              string       `json:"title"`
 	Category           string       `json:"category"`
@@ -149,15 +154,44 @@ type CopilotCase struct {
 
 // SandboxCase описывает тренировочный кейс песочницы из demo_cases.json.
 type SandboxCase struct {
-	ID                  string   `json:"id"`
-	Title               string   `json:"title"`
-	IncomingTask        string   `json:"incoming_task"`
-	SampleTraineeAnswer string   `json:"sample_trainee_answer"`
-	Score               int      `json:"score"`
-	IsCorrect           bool     `json:"is_correct"`
-	Feedback            string   `json:"feedback"`
-	MissedRules         []string `json:"missed_rules"`
-	CorrectResolution   string   `json:"correct_resolution"`
+	TraineeTask         string                `json:"trainee_task,omitempty"`
+	Hints               []string              `json:"hints,omitempty"`
+	ReferenceAnswer     string                `json:"-"`
+	ExpectedRule        string                `json:"-"`
+	TypicalMistakes     []string              `json:"-"`
+	EvaluationCriteria  []EvaluationCriterion `json:"-"`
+	ID                  string                `json:"id"`
+	Title               string                `json:"title"`
+	IncomingTask        string                `json:"incoming_task"`
+	SampleTraineeAnswer string                `json:"sample_trainee_answer"`
+	Score               int                   `json:"score"`
+	IsCorrect           bool                  `json:"is_correct"`
+	Feedback            string                `json:"feedback"`
+	MissedRules         []string              `json:"missed_rules"`
+	CorrectResolution   string                `json:"correct_resolution"`
+}
+
+// Keep grading context server-side; /cases never exposes reference answers.
+func (c *SandboxCase) UnmarshalJSON(data []byte) error {
+	type alias SandboxCase
+	var wire struct {
+		*alias
+		TaskDescription    string                `json:"task_description"`
+		ReferenceAnswer    string                `json:"reference_answer"`
+		ExpectedRule       string                `json:"expected_rule"`
+		TypicalMistakes    []string              `json:"typical_mistakes"`
+		EvaluationCriteria []EvaluationCriterion `json:"evaluation_criteria"`
+	}
+	wire.alias = (*alias)(c)
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	if c.IncomingTask == "" {
+		c.IncomingTask = wire.TaskDescription
+	}
+	c.ReferenceAnswer, c.ExpectedRule = wire.ReferenceAnswer, wire.ExpectedRule
+	c.TypicalMistakes, c.EvaluationCriteria = wire.TypicalMistakes, wire.EvaluationCriteria
+	return nil
 }
 
 // DemoCasesPayload структура всего файла demo_cases.json.

@@ -23,14 +23,16 @@ func writeRetrievedCopilot(w http.ResponseWriter, resp domain.CopilotResponse, r
 	resp.RetrievedChunks = retrieval.Chunks
 	resp.RetrievalScore = retrieval.BestScore
 	resp.EscalationRequired = resp.EscalationRequired || retrieval.EscalationRequired
-	// Quotes come only from the loaded rules, never from hardcoded demo answers.
-	resp.Sources = make([]domain.SourceItem, 0, len(retrieval.Chunks))
-	for _, match := range retrieval.Chunks {
-		resp.Sources = append(resp.Sources, domain.SourceItem{
-			DocumentName: match.DocumentTitle,
-			Clause:       match.Citation,
-			Quote:        match.Text,
-		})
+	// The LLM client validates selected sources. Fallbacks attach retrieved candidates.
+	if resp.Sources == nil {
+		resp.Sources = make([]domain.SourceItem, 0, len(retrieval.Chunks))
+		for _, match := range retrieval.Chunks {
+			resp.Sources = append(resp.Sources, domain.SourceItem{
+				DocumentName: match.DocumentTitle,
+				Clause:       match.Citation,
+				Quote:        match.Text,
+			})
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

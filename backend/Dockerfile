@@ -7,7 +7,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
 
 FROM alpine:3.23
 WORKDIR /app
-RUN addgroup -S app && adduser -S -G app app
+RUN apk add --no-cache ca-certificates && addgroup -S app && adduser -S -G app app
 COPY --from=build /out/api ./api
 COPY data ./data
 USER app
