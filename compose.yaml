@@ -2,6 +2,11 @@ services:
   backend:
     build:
       context: ./backend
+
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-25s}
     restart: unless-stopped
     stop_grace_period: 15s
 

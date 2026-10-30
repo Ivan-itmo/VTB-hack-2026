@@ -72,6 +72,26 @@ func Load(path string, threshold float64) (*Index, error) {
 
 func (idx *Index) Len() int { return len(idx.entries) }
 
+// ReferenceChunks expands the compact reference notation used in training cards.
+// Only existing citations are returned; no rules are inferred from the answer.
+func (idx *Index) ReferenceChunks(references string) []domain.ChunkMatch {
+	var result []domain.ChunkMatch
+	seen := map[string]bool{}
+	clausePattern := regexp.MustCompile(`п\.\s*([0-9]+(?:\.[0-9]+)*)`)
+	for _, group := range strings.Split(references, ";") {
+		document := strings.TrimSpace(strings.SplitN(group, ",", 2)[0])
+		for _, match := range clausePattern.FindAllStringSubmatch(group, -1) {
+			for _, item := range idx.entries {
+				if item.chunk.Document == document && item.chunk.Clause == match[1] && !seen[item.chunk.ID] {
+					seen[item.chunk.ID] = true
+					result = append(result, domain.ChunkMatch{Chunk: item.chunk})
+				}
+			}
+		}
+	}
+	return result
+}
+
 // Search returns up to three positive matches in descending score order.
 // Empty or unrelated tickets return an empty slice and require escalation.
 // Unknown query terms contribute to the norm and coverage denominator, so a

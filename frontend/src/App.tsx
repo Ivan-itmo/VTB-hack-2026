@@ -103,7 +103,7 @@ export function App() {
         const first = casesData.sandbox_cases[0];
         setSelectedCaseId(first.id);
         setSelectedSandboxCase(first);
-        setSandboxTaskText(first.incoming_task);
+        setSandboxTaskText(first.incoming_task + (first.trainee_task ? '\n\nЗадание: ' + first.trainee_task : ''));
         setSandboxTraineeSolution('');
         setSandboxResponse(null);
       }
@@ -122,7 +122,7 @@ export function App() {
   const handleSelectSandboxCase = (c: SandboxCase) => {
     setSelectedCaseId(c.id);
     setSelectedSandboxCase(c);
-    setSandboxTaskText(c.incoming_task);
+    setSandboxTaskText(c.incoming_task + (c.trainee_task ? '\n\nЗадание: ' + c.trainee_task : ''));
     setSandboxTraineeSolution('');
     setSandboxResponse(null);
     setSandboxError(null);
@@ -158,13 +158,13 @@ export function App() {
 
   const handleApplySandboxSample = () => {
     if (selectedSandboxCase) {
-      setSandboxTraineeSolution(selectedSandboxCase.sample_trainee_answer);
+      setSandboxTraineeSolution(selectedSandboxCase.sample_trainee_answer || 'Передать задачу руководителю смены.');
     } else if (casesData.sandbox_cases.length > 0) {
       const first = casesData.sandbox_cases[0];
       setSelectedCaseId(first.id);
       setSelectedSandboxCase(first);
-      setSandboxTaskText(first.incoming_task);
-      setSandboxTraineeSolution(first.sample_trainee_answer);
+      setSandboxTaskText(first.incoming_task + (first.trainee_task ? '\n\nЗадание: ' + first.trainee_task : ''));
+      setSandboxTraineeSolution(first.sample_trainee_answer || 'Передать задачу руководителю смены.');
     }
   };
 

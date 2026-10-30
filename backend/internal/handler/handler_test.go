@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +17,9 @@ import (
 
 func setupTestRouter(t *testing.T) *chi.Mux {
 	t.Helper()
-	h, err := handler.New("../../data/demo_cases.json")
+	h, err := handler.NewWithGenerator("../../data/demo_cases.json", generatorFunc(func(ctx context.Context, text string, chunks []domain.ChunkMatch) (domain.CopilotResponse, error) {
+		return domain.CopilotResponse{SuggestedRoute: "L1", ConfidenceScore: 0.8, ResolutionDraft: "Проект ответа модели"}, nil
+	}))
 	if err != nil {
 		t.Fatalf("Не удалось инициализировать handler: %v", err)
 	}
@@ -100,15 +103,18 @@ func TestCORSPreflight(t *testing.T) {
 	}
 }
 
-func TestCopilotResolveEscalationRetroDate(t *testing.T) {
-	r := setupTestRouter(t)
+func TestCopilotResolveMissingModelEscalates(t *testing.T) {
+	h, err := handler.New("../../data/demo_cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	reqBody := []byte(`{"task_description": "Прошу провести платежное поручение изменением даты задним числом"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/copilot/resolve", bytes.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	r.ServeHTTP(rec, req)
+	h.ResolveCopilot(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Ожидался статус 200, получен %d", rec.Code)
@@ -122,8 +128,8 @@ func TestCopilotResolveEscalationRetroDate(t *testing.T) {
 	if !resp.EscalationRequired {
 		t.Errorf("Ожидался escalation_required = true")
 	}
-	if resp.ConfidenceScore != 0.20 {
-		t.Errorf("Ожидался confidence_score = 0.20, получено %f", resp.ConfidenceScore)
+	if resp.ConfidenceScore != 0 {
+		t.Errorf("Ожидался confidence_score = 0, получено %f", resp.ConfidenceScore)
 	}
 	if len(resp.Sources) == 0 {
 		t.Errorf("Ожидался непустой список sources")
@@ -160,65 +166,32 @@ func TestCopilotResolveEscalatesUnrelatedTextWithCaseID(t *testing.T) {
 	}
 }
 
-func TestSandboxEvaluateWrongAnswer(t *testing.T) {
+func TestSandboxMissingContext(t *testing.T) {
 	r := setupTestRouter(t)
-
-	reqBody := []byte(`{
-		"case_id": "sandbox-case-01",
-		"trainee_solution": "Карту разблокировал сразу по звонку, так как клиент назвал паспортные данные"
-	}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/sandbox/evaluate", bytes.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("Ожидался статус 200, получен %d", rec.Code)
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/sandbox/evaluate", bytes.NewBufferString(`{"case_id":"unknown","trainee_answer":"Любой ответ"}`)))
+	if rec.Code != 422 {
+		t.Fatalf("expected 422, got %d", rec.Code)
 	}
-
-	var resp domain.SandboxResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("Ошибка декодирования: %v", err)
-	}
-
-	if resp.IsCorrect {
-		t.Errorf("Ожидался is_correct = false для некорректного ответа")
-	}
-	if resp.Score > 5 {
-		t.Errorf("Ожидался низкий балл, получено %d", resp.Score)
-	}
-	if len(resp.MissedRules) == 0 {
-		t.Errorf("Ожидался непустой список missed_rules")
+	var result map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &result)
+	if result["error"] != "missing_context" {
+		t.Fatalf("wrong error: %+v", result)
 	}
 }
 
-func TestSandboxEvaluateCorrectAnswer(t *testing.T) {
+func TestSandboxUnavailableDoesNotGrade(t *testing.T) {
 	r := setupTestRouter(t)
-
-	reqBody := []byte(`{
-		"case_id": "sandbox-case-01",
-		"trainee_answer": "Вежливый отказ без проверки кодового слова. Предложил разблокировку через мобильное приложение ВТБ Онлайн либо визит в офис."
-	}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/sandbox/evaluate", bytes.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("Ожидался статус 200, получен %d", rec.Code)
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/sandbox/evaluate", bytes.NewBufferString(`{"case_id":"SANDBOX-01","trainee_answer":"Любой ответ"}`)))
+	if rec.Code != 200 {
+		t.Fatalf("status %d", rec.Code)
 	}
-
-	var resp domain.SandboxResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("Ошибка декодирования: %v", err)
+	var result domain.SandboxResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
 	}
-
-	if !resp.IsCorrect {
-		t.Errorf("Ожидался is_correct = true для верного регламентного ответа")
-	}
-	if resp.Score != 9 {
-		t.Errorf("Ожидался балл 9, получено %d", resp.Score)
+	if !result.EvaluationUnavailable || result.IsCorrect || result.Evaluation != nil {
+		t.Fatal("unavailable model assigned a grade")
 	}
 }

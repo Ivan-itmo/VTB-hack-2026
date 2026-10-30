@@ -13,11 +13,16 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"vtb-copilot-backend/internal/handler"
+	"vtb-copilot-backend/internal/llm"
 	"vtb-copilot-backend/internal/middleware"
 )
 
 func main() {
-	h, err := handler.New("")
+	model, err := llm.FromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	h, err := handler.NewWithGenerator("", model)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +42,7 @@ func main() {
 		Handler:           r,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      45 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

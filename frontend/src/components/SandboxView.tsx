@@ -51,7 +51,7 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
   };
 
   const getScoreStyle = (score: number) => {
-    if (score >= 8) {
+    if ((response?.is_correct ?? score >= 7) && !response?.evaluation?.critical_error) {
       return {
         bg: 'bg-emerald-50 border-emerald-300 text-emerald-800',
         badgeBg: 'bg-emerald-600 text-white',
@@ -59,7 +59,7 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
         title: 'Успешно пройдено',
         icon: <CheckCircle2 className="w-6 h-6 text-emerald-600" />,
       };
-    } else if (score >= 5) {
+    } else if (score >= 5 && !response?.evaluation?.critical_error) {
       return {
         bg: 'bg-amber-50 border-amber-300 text-amber-900',
         badgeBg: 'bg-amber-600 text-white',
@@ -173,9 +173,9 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
             <span>Критерии оценки тренажера</span>
           </div>
           <ul className="list-disc list-inside space-y-1 pl-1">
-            <li>Точность соблюдения контрольных процедур (идентификация, кодовое слово).</li>
-            <li>Отсутствие обещаний невыполнимых сроков или несанкционированных списаний.</li>
-            <li>Правильная маршрутизация инцидента на соответствующую линию поддержки.</li>
+            <li>Оценка по критериям выбранной карточки, максимум — 10 баллов.</li>
+            <li>Кейс зачтён от 7 баллов при отсутствии критической ошибки.</li>
+            <li>Критическая ошибка означает незачёт независимо от суммы баллов.</li>
           </ul>
         </div>
       </div>
@@ -220,7 +220,14 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
           </div>
         )}
 
-        {response && !isLoading && (
+        {response?.evaluation_unavailable && !isLoading && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-900">
+            <p className="font-semibold">Ответ пока не оценён</p>
+            <p>{response.feedback}</p>
+          </div>
+        )}
+
+        {response && !response.evaluation_unavailable && !isLoading && (
           <div className="space-y-5 animate-in fade-in duration-300">
             {/* 1. Score Badge & Verdict */}
             {(() => {
@@ -281,6 +288,21 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
             </div>
 
             {/* 3. Missed Rules Block */}
+            {response.evaluation && (
+              <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+                <h4 className="font-semibold text-sm">Оценка по критериям</h4>
+                {response.evaluation.criteria_results.map((criterion) => (
+                  <div key={criterion.criterion} className="text-sm border-b border-slate-100 pb-2">
+                    <p className="font-medium">{criterion.criterion}: {criterion.awarded_points} / {criterion.max_points}</p>
+                    <p className="text-slate-600">{criterion.verdict}. {criterion.comment}</p>
+                  </div>
+                ))}
+                {response.evaluation.critical_error && <p className="text-rose-700 font-semibold">Критическая ошибка — кейс не засчитан.</p>}
+                {response.evaluation.errors_found.map((item, index) => <p key={index} className="text-sm text-rose-700">{item.description}{item.citation ? ` (${item.citation})` : ''}</p>)}
+                <p className="text-sm font-medium">Главный урок: {response.evaluation.main_lesson}</p>
+                {response.evaluation.flags.map((flag) => <p key={flag} className="text-xs text-amber-800">{flag}</p>)}
+              </div>
+            )}
             {response.missed_rules && response.missed_rules.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm border border-rose-200 overflow-hidden">
                 <div className="bg-rose-50 px-5 py-3 border-b border-rose-200 flex items-center justify-between">
@@ -291,7 +313,7 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
                     </h4>
                   </div>
                   <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded">
-                    Критично
+                    {response.evaluation?.critical_error ? 'Критическая ошибка' : 'Требует внимания'}
                   </span>
                 </div>
 
@@ -314,7 +336,7 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
             )}
 
             {/* 4. Correct Resolution (Эталонное решение) */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {response.correct_resolution && <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div
                 className="bg-slate-50/80 px-5 py-3 border-b border-slate-200 flex items-center justify-between cursor-pointer select-none"
                 onClick={() => setIsCorrectExpanded(!isCorrectExpanded)}
@@ -361,7 +383,7 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
                   </pre>
                 </div>
               )}
-            </div>
+            </div>}
           </div>
         )}
       </div>

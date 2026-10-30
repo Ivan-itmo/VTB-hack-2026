@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,16 +16,34 @@ import (
 
 // Handler инкапсулирует логику обработки запросов и доступ к нормативным демо-кейсам.
 type Handler struct {
-	dataPath string
-	payload  domain.DemoCasesPayload
-	mu       sync.RWMutex
-	rules    *search.Index
+	dataPath         string
+	payload          domain.DemoCasesPayload
+	mu               sync.RWMutex
+	rules            *search.Index
+	generator        CopilotGenerator
+	sandboxGenerator SandboxGenerator
+}
+
+type CopilotGenerator interface {
+	Generate(context.Context, string, []domain.ChunkMatch) (domain.CopilotResponse, error)
+}
+
+type SandboxGenerator interface {
+	Evaluate(context.Context, domain.SandboxCase, string, []domain.ChunkMatch) (domain.SandboxResponse, error)
 }
 
 // New создает новый экземпляр Handler и загружает данные из demo_cases.json.
 func New(customPath string) (*Handler, error) {
+	return NewWithGenerator(customPath, nil)
+}
+
+func NewWithGenerator(customPath string, generator CopilotGenerator) (*Handler, error) {
 	h := &Handler{
-		dataPath: customPath,
+		dataPath:  customPath,
+		generator: generator,
+	}
+	if sandbox, ok := generator.(SandboxGenerator); ok {
+		h.sandboxGenerator = sandbox
 	}
 
 	if err := h.reloadCases(); err != nil {
@@ -113,6 +132,9 @@ func (h *Handler) reloadCases() error {
 		payload.CopilotCases = []domain.CopilotCase{}
 	}
 	for i := range payload.CopilotCases {
+		if payload.CopilotCases[i].IncomingTask == "" {
+			payload.CopilotCases[i].IncomingTask = payload.CopilotCases[i].TaskDescription
+		}
 		if payload.CopilotCases[i].Sources == nil {
 			payload.CopilotCases[i].Sources = []domain.SourceItem{}
 		}
