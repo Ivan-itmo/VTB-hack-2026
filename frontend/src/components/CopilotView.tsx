@@ -11,8 +11,10 @@ import {
   BookOpen,
   HelpCircle,
   Bot,
+  ExternalLink,
 } from 'lucide-react';
 import type { CopilotCase, CopilotResponse } from '../types';
+import { RuleDrawer } from './RuleDrawer';
 
 interface CopilotViewProps {
   taskText: string;
@@ -37,6 +39,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
 }) => {
   const [copiedResolution, setCopiedResolution] = useState(false);
   const [copiedSourceIdx, setCopiedSourceIdx] = useState<number | null>(null);
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
 
   const handleCopyResolution = () => {
     if (!response?.resolution_draft) return;
@@ -330,18 +333,21 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                 {response.sources.map((src, idx) => (
                   <div
                     key={idx}
-                    className="bg-slate-50 rounded-lg p-4 border border-slate-200 hover:border-blue-300 transition-colors"
+                    onClick={() => setSelectedRuleId(src.id || src.rule_id || src.clause)}
+                    className="bg-slate-50 rounded-lg p-4 border border-slate-200 hover:border-[#0050CF] hover:shadow-xs transition-all cursor-pointer group"
+                    title="Нажмите, чтобы открыть полный текст регламента в боковой панели (Drawer)"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/70">
                       <div className="flex items-center space-x-2">
                         <BookOpen className="w-4 h-4 text-[#0050CF] shrink-0" />
-                        <span className="text-xs font-bold text-slate-900">
+                        <span className="text-xs font-bold text-slate-900 group-hover:text-[#002882] transition-colors">
                           {src.document_name}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-[11px]">
-                        <span className="bg-blue-100 text-[#002882] font-semibold px-2 py-0.5 rounded">
-                          {src.clause}
+                        <span className="bg-blue-100 text-[#002882] font-semibold px-2 py-0.5 rounded flex items-center space-x-1">
+                          <span>{src.clause}</span>
+                          <ExternalLink className="w-3 h-3 text-[#0050CF] opacity-70 group-hover:opacity-100" />
                         </span>
                         <span className="text-slate-400">
                           Ред. от {src.edition_date}
@@ -353,10 +359,18 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                       «{src.quote}»
                     </div>
 
-                    <div className="mt-2.5 flex justify-end">
+                    <div className="mt-2.5 flex items-center justify-between">
+                      <span className="text-[11px] text-[#0050CF] font-medium flex items-center space-x-1 group-hover:underline">
+                        <BookOpen className="w-3 h-3" />
+                        <span>Открыть в Drawer регламентов</span>
+                      </span>
+
                       <button
                         type="button"
-                        onClick={() => handleCopySource(src.quote, idx)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopySource(src.quote, idx);
+                        }}
                         className="text-[11px] text-slate-500 hover:text-[#0050CF] flex items-center space-x-1 cursor-pointer transition-colors"
                       >
                         {copiedSourceIdx === idx ? (
@@ -379,6 +393,12 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Slide-over Drawer for regulations */}
+      <RuleDrawer
+        ruleIdOrCitation={selectedRuleId}
+        onClose={() => setSelectedRuleId(null)}
+      />
     </div>
   );
 };

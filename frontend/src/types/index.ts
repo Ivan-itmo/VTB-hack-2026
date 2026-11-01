@@ -1,14 +1,28 @@
 export interface SourceItem {
+  id?: string;
+  rule_id?: string;
   document_name: string;
   clause: string;
   edition_date: string;
   quote: string;
 }
 
+export interface RuleChunk {
+  id: string;
+  document: string;
+  document_title: string;
+  section: string;
+  section_title: string;
+  clause: string;
+  citation: string;
+  text: string;
+}
+
 export interface CopilotCase {
   id: string;
   title: string;
   category: string;
+  priority?: string;
   reg_code: string;
   incoming_task: string;
   suggested_route: string;
@@ -19,7 +33,8 @@ export interface CopilotCase {
 }
 
 export interface SandboxCase {
-	trainee_task?: string;
+  trainee_task?: string;
+  hints?: string[];
   id: string;
   title: string;
   incoming_task: string;
@@ -57,15 +72,15 @@ export interface SandboxRequest {
 }
 
 export interface SandboxResponse {
-	evaluation_unavailable?: boolean;
-	evaluation?: {
-		passed: boolean;
-		critical_error: boolean;
-		criteria_results: { criterion: string; max_points: number; awarded_points: number; verdict: string; comment: string }[];
-		errors_found: { description: string; critical: boolean; citation: string | null }[];
-		main_lesson: string;
-		flags: string[];
-	};
+  evaluation_unavailable?: boolean;
+  evaluation?: {
+    passed: boolean;
+    critical_error: boolean;
+    criteria_results: { criterion: string; max_points: number; awarded_points: number; verdict: string; comment: string }[];
+    errors_found: { description: string; critical: boolean; citation: string | null }[];
+    main_lesson: string;
+    flags: string[];
+  };
   is_correct: boolean;
   score: number;
   feedback: string;

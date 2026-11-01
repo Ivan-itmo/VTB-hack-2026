@@ -1,4 +1,6 @@
-// Package llm calls Gemini with a constrained JSON schema and validates citations locally.
+// Package llm реализует абстракцию шлюза к языковым моделям и строгую валидацию цитирования нормативной базы.
+// BaselineAPIAdapter реализует интерфейс LLMProvider для валидации JSON-схем и сквозного тестирования в Спринте №1.
+// Архитектура подготовлена к переводу во 2-м спринте на изолированный On-Prem контур (vLLM / Ollama) и отечественные корпоративные шлюзы (GigaChat API) в соответствии с 152-ФЗ.
 package llm
 
 import (
@@ -14,6 +16,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"vtb-copilot-backend/internal/domain"
 )
 
 const DefaultModel = "gemini-3.5-flash-lite"
@@ -35,49 +39,92 @@ var (
 	modelPattern       = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 )
 
+// LLMProvider определяет контракт интеграции с языковыми моделями для контуров Ко-пилота и Песочницы.
+type LLMProvider interface {
+	Generate(ctx context.Context, ticket string, chunks []domain.ChunkMatch) (domain.CopilotResponse, error)
+	Evaluate(ctx context.Context, card domain.SandboxCase, answer string, chunks []domain.ChunkMatch) (domain.SandboxResponse, error)
+}
+
 type Config struct {
 	APIKey  string
 	Model   string
 	Timeout time.Duration
-	// BaseURL permits a local mock in tests. Production uses Google's HTTPS API.
+	// BaseURL permits a local mock in tests or an On-Prem LLM gateway (vLLM/Ollama).
 	BaseURL string
 }
 
-type Client struct {
+// BaselineAPIAdapter реализует интерфейс LLMProvider.
+type BaselineAPIAdapter struct {
 	config Config
 	http   *http.Client
 }
 
-func FromEnv() (*Client, error) {
+// Client сохранён как псевдоним типа для полной обратной совместимости.
+type Client = BaselineAPIAdapter
+
+// Compile-time check, что BaselineAPIAdapter реализует LLMProvider.
+var _ LLMProvider = (*BaselineAPIAdapter)(nil)
+
+// FromEnv инициализирует адаптер из переменных окружения с приоритетом LLM_* и обратной совместимостью с GEMINI_*.
+func FromEnv() (*BaselineAPIAdapter, error) {
 	timeout := 25 * time.Second
-	if value := os.Getenv("GEMINI_TIMEOUT"); value != "" {
-		parsed, err := time.ParseDuration(value)
+	timeoutVal := os.Getenv("LLM_TIMEOUT")
+	if timeoutVal == "" {
+		timeoutVal = os.Getenv("GEMINI_TIMEOUT")
+	}
+	if timeoutVal != "" {
+		parsed, err := time.ParseDuration(timeoutVal)
 		if err != nil {
-			return nil, errors.New("GEMINI_TIMEOUT must be a duration, for example 25s")
+			return nil, errors.New("LLM_TIMEOUT must be a duration, for example 25s")
 		}
 		timeout = parsed
 	}
-	return New(Config{APIKey: os.Getenv("GEMINI_API_KEY"), Model: os.Getenv("GEMINI_MODEL"), Timeout: timeout})
+
+	apiKey := strings.TrimSpace(os.Getenv("LLM_API_KEY"))
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
+	}
+
+	model := strings.TrimSpace(os.Getenv("LLM_MODEL"))
+	if model == "" {
+		model = strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
+	}
+	if model == "" {
+		model = DefaultModel
+	}
+
+	baseURL := strings.TrimSpace(os.Getenv("LLM_BASE_URL"))
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(os.Getenv("GEMINI_BASE_URL"))
+	}
+
+	return New(Config{
+		APIKey:  apiKey,
+		Model:   model,
+		Timeout: timeout,
+		BaseURL: baseURL,
+	})
 }
 
-func New(config Config) (*Client, error) {
+// New создает экземпляр BaselineAPIAdapter с валидацией конфигурации.
+func New(config Config) (*BaselineAPIAdapter, error) {
 	config.APIKey = strings.TrimSpace(config.APIKey)
 	if config.Model == "" {
 		config.Model = DefaultModel
 	}
 	if !modelPattern.MatchString(config.Model) {
-		return nil, errors.New("invalid Gemini model name")
+		return nil, errors.New("invalid LLM model name")
 	}
 	if config.Timeout == 0 {
 		config.Timeout = 25 * time.Second
 	}
 	if config.Timeout < 0 || config.Timeout > 30*time.Second {
-		return nil, errors.New("Gemini timeout must be positive and at most 30s")
+		return nil, errors.New("LLM provider timeout must be positive and at most 30s")
 	}
 	if config.BaseURL == "" {
 		config.BaseURL = "https://generativelanguage.googleapis.com/v1beta"
 	}
-	return &Client{config: config, http: &http.Client{
+	return &BaselineAPIAdapter{config: config, http: &http.Client{
 		Timeout: config.Timeout,
 		// Never forward the credential to a redirect destination.
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
@@ -93,7 +140,7 @@ type content struct {
 	Role  string `json:"role,omitempty"`
 }
 
-func (c *Client) call(ctx context.Context, prompt string, schema map[string]any) ([]byte, error) {
+func (c *BaselineAPIAdapter) call(ctx context.Context, prompt string, schema map[string]any) ([]byte, error) {
 	var empty []byte
 	if c.config.APIKey == "" {
 		return nil, ErrUnavailable

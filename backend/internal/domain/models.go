@@ -4,6 +4,8 @@ import "encoding/json"
 
 // SourceItem представляет подтверждающую цитату или нормативное обоснование из регламентов (Strict Grounding).
 type SourceItem struct {
+	ID           string `json:"id,omitempty"`
+	RuleID       string `json:"rule_id,omitempty"`
 	DocumentName string `json:"document_name"`
 	Clause       string `json:"clause"`
 	EditionDate  string `json:"edition_date"`
@@ -140,9 +142,11 @@ type SandboxResponse struct {
 // CopilotCase описывает демо-кейс ко-пилота из demo_cases.json.
 type CopilotCase struct {
 	TaskDescription    string       `json:"task_description,omitempty"`
+	ExpectedRule       string       `json:"expected_rule,omitempty"`
 	ID                 string       `json:"id"`
 	Title              string       `json:"title"`
 	Category           string       `json:"category"`
+	Priority           string       `json:"priority,omitempty"`
 	RegCode            string       `json:"reg_code"`
 	IncomingTask       string       `json:"incoming_task"`
 	SuggestedRoute     string       `json:"suggested_route"`

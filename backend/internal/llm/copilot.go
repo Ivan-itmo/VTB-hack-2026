@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"log"
 	"fmt"
 	"strings"
 
@@ -55,27 +56,31 @@ func copilotSchema(chunks []domain.ChunkMatch) map[string]any {
 }
 
 func parseResponse(data []byte, chunks []domain.ChunkMatch) (domain.CopilotResponse, error) {
+	data = CleanJSON(data)
 	var analysis domain.CopilotAnalysis
 	if err := decodeStrict(data, copilotSchema(chunks), &analysis); err != nil {
 		return domain.CopilotResponse{}, err
 	}
-	invalid := func() (domain.CopilotResponse, error) { return domain.CopilotResponse{}, ErrInvalidResponse }
+	invalid := func(reason string) (domain.CopilotResponse, error) {
+		log.Printf("[LLM Error] parseResponse validation invariant failed: %s. Raw response: %s", reason, string(data))
+		return domain.CopilotResponse{}, ErrInvalidResponse
+	}
 	if analysis.EscalationRequired != (analysis.Confidence == "низкая") || (analysis.Confidence == "высокая" && len(analysis.MissingData) > 0) {
-		return invalid()
+		return invalid("escalation mismatch with confidence or missing data with high confidence")
 	}
 	if strings.TrimSpace(analysis.Resolution.Summary) == "" {
-		return invalid()
+		return invalid("summary is empty")
 	}
 	if analysis.EscalationRequired {
 		if analysis.TaskType != "T3" || analysis.Route.Executor == nil || *analysis.Route.Executor != "Руководитель смены (через L2)" || analysis.Route.Controller != nil || len(analysis.Resolution.Actions) != 0 || analysis.EscalationBrief == nil || analysis.EscalationReason == nil || analysis.Resolution.Deadlines != nil || analysis.Resolution.ClientDraft != nil || analysis.Resolution.Summary != "Прямого ответа в переданных пунктах нет, задача передаётся на эскалацию." {
-			return invalid()
+			return invalid("escalation required structure invariants failed")
 		}
 	} else if len(analysis.Resolution.Actions) == 0 || len(analysis.Citations) == 0 || analysis.EscalationBrief != nil || analysis.EscalationReason != nil {
-		return invalid()
+		return invalid("actions/citations empty or brief/reason present when escalation_required=false")
 	}
 	for _, action := range analysis.Resolution.Actions {
 		if strings.TrimSpace(action) == "" {
-			return invalid()
+			return invalid("action is empty")
 		}
 	}
 	if analysis.Resolution.ClientDraft != nil {
@@ -86,7 +91,7 @@ func parseResponse(data []byte, chunks []domain.ChunkMatch) (domain.CopilotRespo
 			}
 		}
 		if analysis.AutonomyLevel != 2 || !hasTemplate {
-			return invalid()
+			return invalid("client draft without autonomy level 2 or missing template")
 		}
 	}
 	resp := domain.CopilotResponse{Analysis: &analysis, EscalationRequired: analysis.EscalationRequired, Sources: []domain.SourceItem{}}
@@ -116,7 +121,7 @@ func parseResponse(data []byte, chunks []domain.ChunkMatch) (domain.CopilotRespo
 	regulationFound := analysis.Regulation == nil
 	for _, citation := range analysis.Citations {
 		if seen[citation.Citation] {
-			return invalid()
+			return invalid("duplicate citation: " + citation.Citation)
 		}
 		seen[citation.Citation] = true
 		for _, chunk := range chunks {
@@ -125,17 +130,17 @@ func parseResponse(data []byte, chunks []domain.ChunkMatch) (domain.CopilotRespo
 					regulationFound = true
 				}
 				if analysis.EscalationRequired && !strings.Contains(strings.ToLower(chunk.Text), "эскал") {
-					return invalid()
+					return invalid("escalation required but chunk does not mention escalation")
 				}
-				if len(strings.Fields(citation.Supports)) > 15 {
-					return invalid()
+				if len(strings.Fields(citation.Supports)) > 35 {
+					return invalid("citation supports exceeds word count: " + citation.Supports)
 				}
-				resp.Sources = append(resp.Sources, domain.SourceItem{DocumentName: chunk.DocumentTitle, Clause: chunk.Citation, Quote: chunk.Text})
+				resp.Sources = append(resp.Sources, domain.SourceItem{ID: chunk.ID, RuleID: chunk.ID, DocumentName: chunk.DocumentTitle, Clause: chunk.Citation, Quote: chunk.Text})
 			}
 		}
 	}
 	if !regulationFound {
-		return invalid()
+		return invalid("regulationFound is false")
 	}
 	return resp, nil
 }

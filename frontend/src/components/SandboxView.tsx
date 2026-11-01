@@ -42,6 +42,17 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
 }) => {
   const [copiedCorrect, setCopiedCorrect] = useState(false);
   const [isCorrectExpanded, setIsCorrectExpanded] = useState(true);
+  const [revealedHints, setRevealedHints] = useState<number[]>([]);
+
+  React.useEffect(() => {
+    setRevealedHints([]);
+  }, [selectedCase?.id]);
+
+  const toggleHint = (idx: number) => {
+    setRevealedHints((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+  };
 
   const handleCopyCorrect = () => {
     if (!response?.correct_resolution) return;
@@ -165,6 +176,57 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Mentor Hints Card */}
+        {selectedCase?.hints && selectedCase.hints.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden">
+            <div className="bg-blue-50/80 px-4 py-2.5 border-b border-blue-100 flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 text-[#002882] font-bold text-xs">
+                <HelpCircle className="w-4 h-4 text-[#0050CF]" />
+                <span>Подсказки наставника ({selectedCase.hints.length})</span>
+              </div>
+              <span className="text-[10px] text-slate-500 uppercase font-semibold">
+                Тренажер
+              </span>
+            </div>
+            <div className="p-4 space-y-2.5">
+              <p className="text-xs text-slate-500">
+                Раскрывайте подсказки по шагам, если затрудняетесь с регламентным порядком:
+              </p>
+              <div className="space-y-2">
+                {selectedCase.hints.map((hint, idx) => {
+                  const isRevealed = revealedHints.includes(idx);
+                  return (
+                    <div key={idx} className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                      <button
+                        type="button"
+                        onClick={() => toggleHint(idx)}
+                        className="w-full px-3 py-2 text-left font-semibold text-slate-700 bg-slate-50 hover:bg-blue-50/60 flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <span className="flex items-center space-x-1.5">
+                          <span className="w-4 h-4 rounded-full bg-blue-100 text-[#002882] text-[10px] font-bold flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span>Подсказка {idx + 1}</span>
+                        </span>
+                        {isRevealed ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                      </button>
+                      {isRevealed && (
+                        <div className="px-3.5 py-2.5 bg-blue-50/40 text-slate-800 border-t border-slate-100 leading-relaxed font-sans animate-in fade-in duration-150">
+                          {hint}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Evaluation criteria card */}
         <div className="bg-slate-100/80 rounded-xl p-4 border border-slate-200/80 text-xs text-slate-600 space-y-2">
@@ -297,7 +359,19 @@ export const SandboxView: React.FC<SandboxViewProps> = ({
                     <p className="text-slate-600">{criterion.verdict}. {criterion.comment}</p>
                   </div>
                 ))}
-                {response.evaluation.critical_error && <p className="text-rose-700 font-semibold">Критическая ошибка — кейс не засчитан.</p>}
+                {response.evaluation.critical_error && (
+                  <div className="bg-rose-50 border-2 border-rose-500 rounded-xl p-4 flex items-start space-x-3 text-rose-900 shadow-xs animate-pulse my-2">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-extrabold uppercase text-xs tracking-wider text-rose-700">
+                        Критическое нарушение безопасности (Кодовый гардрейл GEN, п. 5.2)
+                      </p>
+                      <p className="text-xs text-rose-800 mt-1 font-medium leading-relaxed">
+                        Обнаружен запрещенный маркер разглашения внутренних параметров комплаенс-проверок или правил антифрода. По регламенту ВТБ данное действие строго запрещено — оценка обнулена (0 баллов).
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {response.evaluation.errors_found.map((item, index) => <p key={index} className="text-sm text-rose-700">{item.description}{item.citation ? ` (${item.citation})` : ''}</p>)}
                 <p className="text-sm font-medium">Главный урок: {response.evaluation.main_lesson}</p>
                 {response.evaluation.flags.map((flag) => <p key={flag} className="text-xs text-amber-800">{flag}</p>)}

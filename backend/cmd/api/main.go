@@ -53,6 +53,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	apiKey := os.Getenv("LLM_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("GEMINI_API_KEY")
+	}
+	if apiKey == "" {
+		log.Println("[LLM Gateway] Ключ модели не задан; шлюз работает в режиме регламентного поиска и безопасной эскалации")
+	} else {
+		log.Println("[LLM Gateway] Baseline-адаптер инициализирован; готов к обработке запросов")
+	}
+
 	h, err := handler.NewWithGenerator("", model)
 	if err != nil {
 		log.Fatal(err)

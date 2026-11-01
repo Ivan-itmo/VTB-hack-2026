@@ -83,7 +83,7 @@ func (idx *Index) Chunks() []domain.Chunk {
 
 func (idx *Index) ChunkByID(id string) (domain.Chunk, bool) {
 	for _, item := range idx.entries {
-		if item.chunk.ID == id {
+		if item.chunk.ID == id || item.chunk.Citation == id {
 			return item.chunk, true
 		}
 	}

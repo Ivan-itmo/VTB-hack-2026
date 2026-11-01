@@ -70,7 +70,7 @@ export const CaseSelector: React.FC<CaseSelectorProps> = ({
                   <optgroup label="Регламентные операции и эскалация">
                     {copilotCases.map((c) => (
                       <option key={c.id} value={c.id}>
-                        [{c.reg_code}] {c.title}
+                        {c.priority ? `[${c.priority}] ` : ''}{c.title}
                       </option>
                     ))}
                   </optgroup>
@@ -78,9 +78,9 @@ export const CaseSelector: React.FC<CaseSelectorProps> = ({
               ) : (
                 <>
                   <optgroup label="Учебные кейсы для стажеров">
-                    {sandboxCases.map((c) => (
+                    {sandboxCases.map((c, idx) => (
                       <option key={c.id} value={c.id}>
-                        {c.title}
+                        [Кейс {idx + 1}] {c.title}
                       </option>
                     ))}
                   </optgroup>

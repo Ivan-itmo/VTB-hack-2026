@@ -78,7 +78,7 @@ func TestGenerateHTTPAndPrompt(t *testing.T) {
 func TestStrictResponseParsing(t *testing.T) {
 	valid := validResponse()
 	for _, data := range []string{
-		"plain text", "```json\n" + valid + "\n```", valid + valid, "null", "[]", "{}",
+		"plain text", valid + valid, "null", "[]", "{}",
 		strings.Replace(valid, `"confidence":"высокая",`, "", 1),
 		strings.Replace(valid, `"autonomy_level":1`, `"autonomy_level":4`, 1),
 		strings.Replace(valid, `"escalation_required":false`, `"escalation_required":null`, 1),
@@ -158,5 +158,17 @@ func TestRedirectDoesNotLeakKey(t *testing.T) {
 	}
 	if called {
 		t.Fatal("redirect followed")
+	}
+}
+
+func TestCleanJSONMarkdownUnwrap(t *testing.T) {
+	valid := validResponse()
+	wrapped := "```json\n" + valid + "\n```"
+	resp, err := parseResponse([]byte(wrapped), testChunks)
+	if err != nil {
+		t.Fatalf("expected wrapped json to parse cleanly, got: %v", err)
+	}
+	if resp.SuggestedRoute != "L1" {
+		t.Fatalf("expected route L1, got: %s", resp.SuggestedRoute)
 	}
 }

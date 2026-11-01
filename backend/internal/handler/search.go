@@ -28,6 +28,8 @@ func writeRetrievedCopilot(w http.ResponseWriter, resp domain.CopilotResponse, r
 		resp.Sources = make([]domain.SourceItem, 0, len(retrieval.Chunks))
 		for _, match := range retrieval.Chunks {
 			resp.Sources = append(resp.Sources, domain.SourceItem{
+				ID:           match.ID,
+				RuleID:       match.ID,
 				DocumentName: match.DocumentTitle,
 				Clause:       match.Citation,
 				Quote:        match.Text,

@@ -2,6 +2,7 @@ package llm
 
 import (
 	"bytes"
+	"log"
 	"encoding/json"
 	"math"
 	"reflect"
@@ -33,11 +34,14 @@ func nullable(schema map[string]any) map[string]any {
 
 // Check the same schema locally, including required/null fields, then decode.
 func decodeStrict(data []byte, schema map[string]any, target any) error {
+	data = CleanJSON(data)
 	if !uniqueKeys(json.NewDecoder(bytes.NewReader(data))) {
+		log.Printf("[LLM Error] decodeStrict: unique keys or JSON token error. Raw response: %s", string(data))
 		return ErrInvalidResponse
 	}
 	var value any
 	if err := json.Unmarshal(data, &value); err != nil {
+		log.Printf("[LLM Error] decodeStrict: json.Unmarshal failed: %v. Raw response: %s", err, string(data))
 		return ErrInvalidResponse
 	}
 	// Normalize schema maps/slices and numeric bounds to their JSON representation.
@@ -47,9 +51,11 @@ func decodeStrict(data []byte, schema map[string]any, target any) error {
 	}
 	var normalized map[string]any
 	if json.Unmarshal(encoded, &normalized) != nil || !validSchema(value, normalized) {
+		log.Printf("[LLM Error] decodeStrict: validSchema check failed. Raw response: %s", string(data))
 		return ErrInvalidResponse
 	}
 	if err := json.Unmarshal(data, target); err != nil {
+		log.Printf("[LLM Error] decodeStrict: target unmarshal failed: %v. Raw response: %s", err, string(data))
 		return ErrInvalidResponse
 	}
 	return nil
